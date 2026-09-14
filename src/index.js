@@ -77,6 +77,160 @@ export default {
       return await runMandarake(env);
     }
 
+    if (url.pathname === "/debug-dom") {
+
+      let browser = null;
+    
+      try {
+    
+        browser =
+          await puppeteer.launch(
+            env.BROWSER
+          );
+    
+        const page =
+          await browser.newPage();
+    
+        await page.setUserAgent(
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+          "AppleWebKit/537.36 (KHTML, like Gecko) " +
+          "Chrome/151.0.0.0 Safari/537.36"
+        );
+    
+        await page.goto(
+          "https://www.mandarake.co.jp/",
+          {
+            waitUntil: "domcontentloaded",
+            timeout: 30000
+          }
+        );
+    
+        await page.goto(
+          "https://order.mandarake.co.jp/order/?lang=en",
+          {
+            waitUntil: "domcontentloaded",
+            timeout: 30000
+          }
+        );
+    
+        await page.goto(
+          "https://order.mandarake.co.jp/order/listPage/list?keyword=%E3%82%B8%E3%83%A7%E3%82%B8%E3%83%A7&lang=en",
+          {
+            waitUntil: "domcontentloaded",
+            timeout: 30000
+          }
+        );
+    
+        await sleep(1000);
+    
+        const debug =
+          await page.evaluate(() => {
+    
+            const link =
+              document.querySelector(
+                'a[href*="itemCode=1070800275"]'
+              ) ||
+              document.querySelector(
+                'a[href*="/order/detailPage/item"]'
+              );
+    
+            if (!link) {
+              return {
+                found: false
+              };
+            }
+    
+            const parents = [];
+    
+            let node = link;
+    
+            for (
+              let level = 0;
+              level < 10 && node;
+              level++
+            ) {
+    
+              parents.push({
+    
+                level,
+    
+                tag:
+                  node.tagName,
+    
+                id:
+                  node.id || null,
+    
+                className:
+                  typeof node.className === "string"
+                    ? node.className
+                    : null,
+    
+                text:
+                  (
+                    node.innerText ||
+                    ""
+                  )
+                    .replace(/\s+/g, " ")
+                    .trim()
+                    .slice(0, 1500),
+    
+                html:
+                  (
+                    node.outerHTML ||
+                    ""
+                  )
+                    .slice(0, 4000)
+    
+              });
+    
+              node =
+                node.parentElement;
+            }
+    
+            return {
+    
+              found: true,
+    
+              href:
+                link.href,
+    
+              linkText:
+                (
+                  link.innerText ||
+                  ""
+                ).trim(),
+    
+              parents
+    
+            };
+          });
+    
+        await browser.close();
+    
+        browser = null;
+    
+        return json({
+          success: true,
+          debug
+        });
+    
+      } catch (error) {
+    
+        if (browser) {
+          try {
+            await browser.close();
+          } catch {}
+        }
+    
+        return json({
+          success: false,
+          error: String(error),
+          stack:
+            error?.stack || null
+        });
+      }
+    }
+
 
     return new Response(
       "Not found",
