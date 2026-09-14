@@ -530,7 +530,8 @@ async function runMandarake(env) {
 
           const price =
             extractYenPrice(
-              raw.priceText
+              raw.priceText ||
+              raw.text
             );
 
 
@@ -767,12 +768,11 @@ function extractYenPrice(text) {
     return null;
   }
 
-
   const normalized =
     String(text)
       .replace(/\u00a0/g, " ")
-      .replace(/\s+/g, " ");
-
+      .replace(/\s+/g, " ")
+      .trim();
 
   const patterns = [
 
@@ -782,10 +782,11 @@ function extractYenPrice(text) {
 
     /JPY\s*([\d,]+)/i,
 
-    /([\d,]+)\s*JPY/i
+    /([\d,]+)\s*JPY/i,
+
+    /([\d,]+)\s*yen\b/i
 
   ];
-
 
   for (
     const pattern
@@ -797,11 +798,9 @@ function extractYenPrice(text) {
         pattern
       );
 
-
     if (!match) {
       continue;
     }
-
 
     const value =
       Number(
@@ -809,17 +808,14 @@ function extractYenPrice(text) {
           .replace(/,/g, "")
       );
 
-
     if (
       Number.isFinite(value) &&
       value > 0 &&
       value < 10000000
     ) {
-
       return value;
     }
   }
-
 
   return null;
 }
