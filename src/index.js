@@ -1,168 +1,800 @@
 import puppeteer from "@cloudflare/puppeteer";
 
-export default {
-  async fetch(request, env) {
-    const url = new URL(request.url);
 
-    if (url.pathname !== "/test-mandarake") {
-      return new Response(
-        "Mandarake Hunter is running",
-        {
-          headers: {
-            "content-type": "text/plain; charset=UTF-8"
-          }
-        }
-      );
+const CONFIG = {
+
+  searches: [
+
+    // 🔥 JOJO — ПРІОРИТЕТ
+    {
+      name: "JoJo",
+      keyword: "ジョジョ",
+      type: "jojo",
+      maxPrice: 10000
+    },
+
+    {
+      name: "Super Action Statue",
+      keyword: "超像可動",
+      type: "jojo",
+      maxPrice: 10000
+    },
+
+    {
+      name: "Medicos",
+      keyword: "メディコス",
+      type: "jojo",
+      maxPrice: 10000
+    },
+
+
+    // 💸 БУДЬ-ЯКІ ДЕШЕВІ ФІГУРКИ
+    {
+      name: "Cheap figures",
+      keyword: "フィギュア",
+      type: "cheap",
+      maxPrice: 3000
+    },
+
+    {
+      name: "Prize figures",
+      keyword: "プライズ フィギュア",
+      type: "cheap",
+      maxPrice: 3000
     }
 
-    let browser;
+  ],
 
-    try {
-      browser = await puppeteer.launch(
-        env.BROWSER
-      );
+  maxItemsPerSearch: 20
+};
 
-      const page = await browser.newPage();
 
-      await page.setUserAgent(
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
-        "AppleWebKit/537.36 (KHTML, like Gecko) " +
-        "Chrome/151.0.0.0 Safari/537.36"
-      );
 
-      // 1. Стартова сторінка Mandarake
-      await page.goto(
-        "https://www.mandarake.co.jp/",
-        {
-          waitUntil: "domcontentloaded",
-          timeout: 30000
-        }
-      );
+export default {
 
-      const firstUrl = page.url();
+  async fetch(request, env) {
 
-      // 2. Mail-Order
-      await page.goto(
-        "https://order.mandarake.co.jp/order/?lang=en",
-        {
-          waitUntil: "domcontentloaded",
-          timeout: 30000
-        }
-      );
+    const url =
+      new URL(request.url);
 
-      const orderUrl = page.url();
 
-      // 3. Пошук JoJo
-      await page.goto(
-        "https://order.mandarake.co.jp/order/listPage/list?keyword=%E3%82%B8%E3%83%A7%E3%82%B8%E3%83%A7&lang=en",
-        {
-          waitUntil: "domcontentloaded",
-          timeout: 30000
-        }
-      );
-
-      // Трошки даємо сторінці догрузитися
-      await new Promise(
-        resolve => setTimeout(resolve, 1500)
-      );
-
-      const finalUrl = page.url();
-
-      const html =
-        await page.content();
-
-      const cookies =
-        await page.cookies();
-
-      const cookieNames =
-        cookies.map(
-          cookie => cookie.name
-        );
-
-      await browser.close();
-      browser = null;
+    // Головна
+    if (url.pathname === "/") {
 
       return json({
         success: true,
-
-        firstUrl,
-        orderUrl,
-        finalUrl,
-
-        length:
-          html.length,
-
-        hasJojo:
-          html.includes("ジョジョ"),
-
-        hasGiorno:
-          html.includes("Giorno"),
-
-        hasItemCode:
-          html.includes("itemCode"),
-
-        hasSearchResult:
-          html.includes("Search result"),
-
-        has3800:
-          html.includes("3,800"),
-
-        hasMailOrder:
-          html.includes("Mail-Order"),
-
-        cookieNames,
-
-        hasAccessToken:
-          cookieNames.includes(
-            "mandarake_access_token"
-          ),
-
-        hasMandarakeOrder:
-          cookieNames.includes(
-            "mandarake_order"
-          ),
-
-        hasMandarakeUser:
-          cookieNames.includes(
-            "tr_mndrk_user"
-          ),
-
-        beginning:
-          html.slice(0, 1000)
-      });
-
-    } catch (error) {
-
-      if (browser) {
-        try {
-          await browser.close();
-        } catch {}
-      }
-
-      return json({
-        success: false,
-        error:
-          String(error),
-
-        stack:
-          error?.stack || null
+        message: "Mandarake Hunter is running",
+        routes: [
+          "/run"
+        ]
       });
     }
+
+
+    // Ручний запуск
+    if (url.pathname === "/run") {
+
+      return await runMandarake(env);
+    }
+
+
+    return new Response(
+      "Not found",
+      {
+        status: 404
+      }
+    );
   }
 };
 
 
+
+async function runMandarake(env) {
+
+  let browser = null;
+
+  const startedAt =
+    Date.now();
+
+
+  try {
+
+    browser =
+      await puppeteer.launch(
+        env.BROWSER
+      );
+
+
+    const page =
+      await browser.newPage();
+
+
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+      "AppleWebKit/537.36 (KHTML, like Gecko) " +
+      "Chrome/151.0.0.0 Safari/537.36"
+    );
+
+
+    await page.setViewport({
+      width: 1280,
+      height: 900
+    });
+
+
+    // --------------------------------
+    // 1. Створюємо сесію Mandarake
+    // --------------------------------
+
+    await page.goto(
+      "https://www.mandarake.co.jp/",
+      {
+        waitUntil: "domcontentloaded",
+        timeout: 30000
+      }
+    );
+
+
+    await page.goto(
+      "https://order.mandarake.co.jp/order/?lang=en",
+      {
+        waitUntil: "domcontentloaded",
+        timeout: 30000
+      }
+    );
+
+
+    const results = [];
+
+    const errors = [];
+
+
+    // --------------------------------
+    // 2. Пошуки
+    // --------------------------------
+
+    for (
+      const search
+      of CONFIG.searches
+    ) {
+
+      try {
+
+        const searchUrl =
+          "https://order.mandarake.co.jp/order/listPage/list" +
+          "?keyword=" +
+          encodeURIComponent(
+            search.keyword
+          ) +
+          "&lang=en";
+
+
+        await page.goto(
+          searchUrl,
+          {
+            waitUntil:
+              "domcontentloaded",
+
+            timeout:
+              30000
+          }
+        );
+
+
+        // Невелика пауза, щоб DOM догрузився
+        await sleep(700);
+
+
+        const currentUrl =
+          page.url();
+
+
+        // Якщо Mandarake раптом викинув
+        // нас із магазину
+        if (
+          !currentUrl.includes(
+            "order.mandarake.co.jp/order/"
+          )
+        ) {
+
+          errors.push({
+            search:
+              search.name,
+
+            error:
+              "Redirected outside Mandarake order",
+
+            url:
+              currentUrl
+          });
+
+          continue;
+        }
+
+
+        // --------------------------------
+        // 3. Збираємо посилання на товари
+        // --------------------------------
+
+        const rawItems =
+          await page.evaluate(() => {
+
+            const links =
+              Array.from(
+                document.querySelectorAll(
+                  'a[href*="/order/detailPage/item"]'
+                )
+              );
+
+
+            const seen =
+              new Set();
+
+
+            const items = [];
+
+
+            for (
+              const link
+              of links
+            ) {
+
+              const href =
+                link.href;
+
+
+              if (
+                !href ||
+                seen.has(href)
+              ) {
+                continue;
+              }
+
+
+              const match =
+                href.match(
+                  /itemCode=(\d+)/
+                );
+
+
+              if (!match) {
+                continue;
+              }
+
+
+              const itemCode =
+                match[1];
+
+
+              if (
+                seen.has(itemCode)
+              ) {
+                continue;
+              }
+
+
+              seen.add(href);
+              seen.add(itemCode);
+
+
+              // Шукаємо найближчий контейнер товару
+              let box =
+                link;
+
+
+              for (
+                let i = 0;
+                i < 8 && box;
+                i++
+              ) {
+
+                const text =
+                  (
+                    box.innerText ||
+                    ""
+                  ).trim();
+
+
+                if (
+                  text.length > 30 &&
+                  (
+                    text.includes("円") ||
+                    text.includes("JPY") ||
+                    /¥\s*[\d,]+/.test(text)
+                  )
+                ) {
+                  break;
+                }
+
+
+                box =
+                  box.parentElement;
+              }
+
+
+              if (!box) {
+                box =
+                  link.parentElement;
+              }
+
+
+              const text =
+                (
+                  box?.innerText ||
+                  ""
+                ).trim();
+
+
+              // Фото
+              const imageElement =
+                box?.querySelector(
+                  "img"
+                ) ||
+                link.querySelector(
+                  "img"
+                );
+
+
+              let image =
+                imageElement?.src ||
+                imageElement?.getAttribute(
+                  "data-src"
+                ) ||
+                imageElement?.getAttribute(
+                  "data-original"
+                ) ||
+                null;
+
+
+              // Назва
+              let title =
+                (
+                  link.innerText ||
+                  ""
+                ).trim();
+
+
+              if (
+                !title &&
+                imageElement
+              ) {
+
+                title =
+                  (
+                    imageElement.alt ||
+                    ""
+                  ).trim();
+              }
+
+
+              items.push({
+                itemCode,
+                href,
+                title,
+                image,
+                text
+              });
+            }
+
+
+            return items;
+          });
+
+
+        // --------------------------------
+        // 4. Нормалізуємо
+        // --------------------------------
+
+        let count = 0;
+
+
+        for (
+          const raw
+          of rawItems
+        ) {
+
+          if (
+            count >=
+            CONFIG.maxItemsPerSearch
+          ) {
+            break;
+          }
+
+
+          const price =
+            extractYenPrice(
+              raw.text
+            );
+
+
+          // Якщо ціну поки не знайшли —
+          // все одно покажемо товар у debug.
+          // Так побачимо реальну структуру.
+          const normalized = {
+
+            source:
+              "Mandarake",
+
+            search:
+              search.name,
+
+            type:
+              search.type,
+
+            itemCode:
+              raw.itemCode,
+
+            title:
+              cleanText(
+                raw.title
+              ),
+
+            priceYen:
+              price,
+
+            maxPriceYen:
+              search.maxPrice,
+
+            withinPrice:
+              price !== null
+                ? price <=
+                  search.maxPrice
+                : null,
+
+            image:
+              raw.image,
+
+            link:
+              raw.href,
+
+            rawText:
+              cleanText(
+                raw.text
+              ).slice(
+                0,
+                800
+              )
+          };
+
+
+          results.push(
+            normalized
+          );
+
+
+          count++;
+        }
+
+
+      } catch (error) {
+
+        errors.push({
+
+          search:
+            search.name,
+
+          error:
+            String(error)
+
+        });
+      }
+    }
+
+
+    await browser.close();
+
+    browser = null;
+
+
+    // --------------------------------
+    // 5. Прибираємо дублікати
+    // --------------------------------
+
+    const unique =
+      deduplicateItems(
+        results
+      );
+
+
+    const priced =
+      unique.filter(
+        item =>
+          Number.isFinite(
+            item.priceYen
+          )
+      );
+
+
+    const matching =
+      priced.filter(
+        item =>
+          item.priceYen <=
+          item.maxPriceYen
+      );
+
+
+    const jojo =
+      matching.filter(
+        item =>
+          item.type === "jojo"
+      );
+
+
+    const cheap =
+      matching.filter(
+        item =>
+          item.type === "cheap"
+      );
+
+
+    return json({
+
+      success: true,
+
+      searches:
+        CONFIG.searches.length,
+
+      foundRaw:
+        results.length,
+
+      unique:
+        unique.length,
+
+      priced:
+        priced.length,
+
+      matching:
+        matching.length,
+
+      jojo:
+        jojo.length,
+
+      cheap:
+        cheap.length,
+
+      browserSeconds:
+        Number(
+          (
+            (
+              Date.now() -
+              startedAt
+            ) / 1000
+          ).toFixed(2)
+        ),
+
+      errors,
+
+      // Поки показуємо максимум 40,
+      // щоб JSON не був величезний.
+      items:
+        unique.slice(
+          0,
+          40
+        )
+
+    });
+
+
+  } catch (error) {
+
+    if (browser) {
+
+      try {
+        await browser.close();
+      } catch {}
+    }
+
+
+    return json({
+
+      success: false,
+
+      error:
+        String(error),
+
+      stack:
+        error?.stack ||
+        null,
+
+      browserSeconds:
+        Number(
+          (
+            (
+              Date.now() -
+              startedAt
+            ) / 1000
+          ).toFixed(2)
+        )
+
+    });
+  }
+}
+
+
+
+// ========================================
+// PRICE
+// ========================================
+
+function extractYenPrice(text) {
+
+  if (!text) {
+    return null;
+  }
+
+
+  const normalized =
+    String(text)
+      .replace(/\u00a0/g, " ")
+      .replace(/\s+/g, " ");
+
+
+  const patterns = [
+
+    /(?:¥|￥)\s*([\d,]+)/i,
+
+    /([\d,]+)\s*円/i,
+
+    /JPY\s*([\d,]+)/i,
+
+    /([\d,]+)\s*JPY/i
+
+  ];
+
+
+  for (
+    const pattern
+    of patterns
+  ) {
+
+    const match =
+      normalized.match(
+        pattern
+      );
+
+
+    if (!match) {
+      continue;
+    }
+
+
+    const value =
+      Number(
+        match[1]
+          .replace(/,/g, "")
+      );
+
+
+    if (
+      Number.isFinite(value) &&
+      value > 0 &&
+      value < 10000000
+    ) {
+
+      return value;
+    }
+  }
+
+
+  return null;
+}
+
+
+
+// ========================================
+// DEDUPLICATION
+// ========================================
+
+function deduplicateItems(
+  items
+) {
+
+  const map =
+    new Map();
+
+
+  for (
+    const item
+    of items
+  ) {
+
+    const key =
+      item.itemCode ||
+      item.link;
+
+
+    if (!key) {
+      continue;
+    }
+
+
+    // Якщо товар уже зустрічався,
+    // JoJo-результат має пріоритет
+    // над cheap.
+    if (
+      map.has(key)
+    ) {
+
+      const old =
+        map.get(key);
+
+
+      if (
+        old.type !== "jojo" &&
+        item.type === "jojo"
+      ) {
+
+        map.set(
+          key,
+          item
+        );
+      }
+
+
+      continue;
+    }
+
+
+    map.set(
+      key,
+      item
+    );
+  }
+
+
+  return Array.from(
+    map.values()
+  );
+}
+
+
+
+// ========================================
+// HELPERS
+// ========================================
+
+function cleanText(text) {
+
+  return String(
+    text || ""
+  )
+    .replace(
+      /\s+/g,
+      " "
+    )
+    .trim();
+}
+
+
+function sleep(ms) {
+
+  return new Promise(
+    resolve =>
+      setTimeout(
+        resolve,
+        ms
+      )
+  );
+}
+
+
 function json(data) {
+
   return new Response(
+
     JSON.stringify(
       data,
       null,
       2
     ),
+
     {
       headers: {
         "content-type":
-          "application/json; charset=UTF-8"
+          "application/json; charset=UTF-8",
+
+        "cache-control":
+          "no-store"
       }
     }
   );
