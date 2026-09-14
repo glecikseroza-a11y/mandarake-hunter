@@ -530,7 +530,7 @@ async function runMandarake(env) {
 
           const price =
             extractYenPrice(
-              raw.text
+              raw.priceText
             );
 
 
@@ -568,12 +568,30 @@ async function runMandarake(env) {
                   search.maxPrice
                 : null,
 
+            shop:
+              cleanText(
+                raw.shop
+              ),
+            
+            stock:
+              cleanText(
+                raw.stock
+              ),
+            
+            itemNo:
+              cleanText(
+                raw.itemNo
+              ),
+            
+            newArrival:
+              raw.newArrival,
+            
             image:
               raw.image,
-
+            
             link:
               raw.href,
-
+            
             rawText:
               cleanText(
                 raw.text
@@ -581,7 +599,6 @@ async function runMandarake(env) {
                 0,
                 800
               )
-          };
 
 
           results.push(
