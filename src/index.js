@@ -651,27 +651,60 @@ async function runMandarake(env) {
       );
 
 
-    const matching =
+    const availableFigures =
       priced.filter(
         item =>
-          item.priceYen <=
-          item.maxPriceYen
+          !isSoldOut(item) &&
+          looksLikeFigure(item)
       );
-
-
+    
+    
     const jojo =
-      matching.filter(
-        item =>
-          item.type === "jojo"
-      );
-
-
+      availableFigures
+        .filter(
+          item =>
+            isJojoFigure(item) &&
+            item.priceYen <= 10000
+        )
+        .sort(
+          (a, b) =>
+            a.priceYen - b.priceYen
+        );
+    
+    
     const cheap =
-      matching.filter(
-        item =>
-          item.type === "cheap"
-      );
-
+      availableFigures
+        .filter(
+          item =>
+            !isJojoFigure(item) &&
+            item.priceYen <= 3000
+        )
+        .sort(
+          (a, b) =>
+            a.priceYen - b.priceYen
+        );
+    
+    
+    const matching = [
+      ...jojo,
+      ...cheap
+    ];
+    
+    
+    for (const item of matching) {
+    
+      item.defect =
+        hasDefect(item);
+    
+      item.badge =
+        item.defect
+          ? "⚠️ ДЕФЕКТ"
+          : (
+              isJojoFigure(item)
+                ? "⭐ JOJO"
+                : "🔥 ДЕШЕВО"
+            );
+    }
 
     return json({
 
@@ -689,6 +722,9 @@ async function runMandarake(env) {
       priced:
         priced.length,
 
+      figures:
+        availableFigures.length,
+      
       matching:
         matching.length,
 
@@ -713,7 +749,7 @@ async function runMandarake(env) {
       // Поки показуємо максимум 40,
       // щоб JSON не був величезний.
       items:
-        unique.slice(
+        matching.slice(
           0,
           40
         )
