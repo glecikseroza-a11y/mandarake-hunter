@@ -538,60 +538,60 @@ async function runMandarake(env) {
           // все одно покажемо товар у debug.
           // Так побачимо реальну структуру.
           const normalized = {
-
+          
             source:
               "Mandarake",
-
+          
             search:
               search.name,
-
+          
             type:
               search.type,
-
+          
             itemCode:
               raw.itemCode,
-
+          
             title:
               cleanText(
                 raw.title
               ),
-
+          
             priceYen:
               price,
-
+          
             maxPriceYen:
               search.maxPrice,
-
+          
             withinPrice:
               price !== null
                 ? price <=
                   search.maxPrice
                 : null,
-
+          
             shop:
               cleanText(
                 raw.shop
               ),
-            
+          
             stock:
               cleanText(
                 raw.stock
               ),
-            
+          
             itemNo:
               cleanText(
                 raw.itemNo
               ),
-            
+          
             newArrival:
               raw.newArrival,
-            
+          
             image:
               raw.image,
-            
+          
             link:
               raw.href,
-            
+          
             rawText:
               cleanText(
                 raw.text
@@ -599,15 +599,16 @@ async function runMandarake(env) {
                 0,
                 800
               )
-
-
+          
+          };
+          
+          
           results.push(
             normalized
           );
-
-
+          
+          
           count++;
-        }
 
 
       } catch (error) {
