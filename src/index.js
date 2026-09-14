@@ -706,6 +706,68 @@ async function runMandarake(env) {
             );
     }
 
+    // --------------------------------
+    // 6. Telegram + SEEN
+    // --------------------------------
+    
+    let sent = 0;
+    let alreadySeen = 0;
+    let telegramErrors = [];
+    
+    const MAX_MESSAGES_PER_RUN = 8;
+    
+    for (const item of matching) {
+    
+      if (sent >= MAX_MESSAGES_PER_RUN) {
+        break;
+      }
+    
+      const seenKey =
+        `mandarake:item:${item.itemCode}`;
+    
+      const seen =
+        await env.SEEN.get(seenKey);
+    
+      if (seen) {
+        alreadySeen++;
+        continue;
+      }
+    
+      try {
+    
+        await sendMandarakeItem(
+          env,
+          item
+        );
+    
+        sent++;
+    
+        await env.SEEN.put(
+          seenKey,
+          JSON.stringify({
+            title: item.title,
+            priceYen: item.priceYen,
+            seenAt:
+              new Date().toISOString()
+          }),
+          {
+            expirationTtl:
+              90 * 24 * 60 * 60
+          }
+        );
+    
+      } catch (error) {
+    
+        telegramErrors.push({
+          itemCode:
+            item.itemCode,
+    
+          error:
+            String(error)
+        });
+      }
+    }
+
     return json({
 
       success: true,
@@ -733,6 +795,9 @@ async function runMandarake(env) {
 
       cheap:
         cheap.length,
+        sent,
+        alreadySeen,
+        telegramErrors,
 
       browserSeconds:
         Number(
@@ -1199,4 +1264,256 @@ function isJojoFigure(item) {
     word =>
       text.includes(word)
   );
+}
+
+
+async function sendMandarakeItem(
+  env,
+  item
+) {
+
+  const chatIds =
+    String(env.CHAT_IDS || "")
+      .split(",")
+      .map(
+        id => id.trim()
+      )
+      .filter(Boolean);
+
+  if (!env.BOT_TOKEN) {
+    throw new Error(
+      "BOT_TOKEN is missing"
+    );
+  }
+
+  if (!chatIds.length) {
+    throw new Error(
+      "CHAT_IDS is empty"
+    );
+  }
+
+
+  const priceUah =
+    await yenToUah(
+      item.priceYen
+    );
+
+
+  const priceLine =
+    priceUah !== null
+      ? `💴 <b>¥${formatNumber(item.priceYen)}</b> | 🇺🇦 ≈ <b>${formatNumber(priceUah)} грн</b>`
+      : `💴 <b>¥${formatNumber(item.priceYen)}</b>`;
+
+
+  const defectLine =
+    item.defect
+      ? "\n⚠️ <b>МОЖЛИВИЙ ДЕФЕКТ / НЕПОВНА КОМПЛЕКТАЦІЯ</b>\n"
+      : "";
+
+
+  const arrivalLine =
+    item.newArrival
+      ? "\n🆕 <b>New Arrival</b>"
+      : "";
+
+
+  const text =
+    `${item.badge}\n\n` +
+
+    `<b>${escapeHtml(item.title)}</b>\n\n` +
+
+    `${priceLine}\n` +
+
+    `🏪 ${escapeHtml(item.shop || "Mandarake")}` +
+
+    `${arrivalLine}` +
+
+    `${defectLine}\n\n` +
+
+    `<a href="${escapeHtml(item.link)}">🔗 Відкрити на Mandarake</a>`;
+
+
+  for (const chatId of chatIds) {
+
+    if (
+      item.image &&
+      /^https?:\/\//i.test(
+        item.image
+      )
+    ) {
+
+      const photoResponse =
+        await fetch(
+          `https://api.telegram.org/bot${env.BOT_TOKEN}/sendPhoto`,
+          {
+            method: "POST",
+
+            headers: {
+              "content-type":
+                "application/json"
+            },
+
+            body:
+              JSON.stringify({
+                chat_id:
+                  chatId,
+
+                photo:
+                  item.image,
+
+                caption:
+                  text,
+
+                parse_mode:
+                  "HTML"
+              })
+          }
+        );
+
+
+      if (photoResponse.ok) {
+        continue;
+      }
+    }
+
+
+    const messageResponse =
+      await fetch(
+        `https://api.telegram.org/bot${env.BOT_TOKEN}/sendMessage`,
+        {
+          method: "POST",
+
+          headers: {
+            "content-type":
+              "application/json"
+          },
+
+          body:
+            JSON.stringify({
+              chat_id:
+                chatId,
+
+              text,
+
+              parse_mode:
+                "HTML",
+
+              disable_web_page_preview:
+                false
+            })
+        }
+      );
+
+
+    if (!messageResponse.ok) {
+
+      const errorText =
+        await messageResponse.text();
+
+      throw new Error(
+        `Telegram ${messageResponse.status}: ${errorText}`
+      );
+    }
+  }
+}
+
+
+async function yenToUah(yen) {
+
+  try {
+
+    const response =
+      await fetch(
+        "https://api.frankfurter.dev/v2/rates?base=JPY&quotes=UAH"
+      );
+
+
+    if (!response.ok) {
+      return null;
+    }
+
+
+    const data =
+      await response.json();
+
+
+    let rate = null;
+
+
+    if (Array.isArray(data)) {
+
+      const uah =
+        data.find(
+          row =>
+            row.quote === "UAH"
+        );
+
+      rate =
+        Number(
+          uah?.rate
+        );
+
+    } else {
+
+      rate =
+        Number(
+          data?.rates?.UAH ??
+          data?.UAH
+        );
+    }
+
+
+    if (
+      !Number.isFinite(rate) ||
+      rate <= 0
+    ) {
+      return null;
+    }
+
+
+    return Math.round(
+      yen * rate
+    );
+
+  } catch {
+
+    return null;
+  }
+}
+
+
+function formatNumber(value) {
+
+  return Math.round(value)
+    .toLocaleString(
+      "uk-UA"
+    )
+    .replace(
+      /\u00a0/g,
+      " "
+    );
+}
+
+
+function escapeHtml(value) {
+
+  return String(
+    value || ""
+  )
+    .replace(
+      /&/g,
+      "&amp;"
+    )
+    .replace(
+      /</g,
+      "&lt;"
+    )
+    .replace(
+      />/g,
+      "&gt;"
+    )
+    .replace(
+      /"/g,
+      "&quot;"
+    );
 }
