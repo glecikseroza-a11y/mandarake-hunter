@@ -940,3 +940,227 @@ function json(data) {
     }
   );
 }
+
+function isSoldOut(item) {
+
+  const text =
+    `${item.title || ""} ${item.rawText || ""}`
+      .toLowerCase();
+
+  return (
+    text.includes("sold out") ||
+    text.includes("out of stock") ||
+    text.includes("品切") ||
+    text.includes("売り切れ")
+  );
+}
+
+
+function hasDefect(item) {
+
+  const text =
+    `${item.title || ""} ${item.rawText || ""}`
+      .toLowerCase();
+
+  const words = [
+    "has damage",
+    "damaged",
+    "damage",
+    "junk",
+    "ジャンク",
+    "破損",
+    "欠品",
+    "箱なし",
+    "箱無し",
+    "本体のみ",
+    "台座欠品",
+    "パーツ欠品",
+    "パーツのみ",
+    "開封"
+  ];
+
+  return words.some(
+    word =>
+      text.includes(
+        word.toLowerCase()
+      )
+  );
+}
+
+
+function looksLikeFigure(item) {
+
+  const text =
+    `${item.title || ""} ${item.rawText || ""}`
+      .toLowerCase();
+
+
+  // Явно НЕ фигурки
+  const reject = [
+
+    "t-shirt",
+    "shirt",
+    "towel",
+    "badge",
+    "can badge",
+    "sticker",
+    "keychain",
+    "key chain",
+    "acrylic stand",
+    "acrylic panel",
+    "acrylic magnet",
+    "magnet",
+    "playing cards",
+    "card collection",
+    "comic",
+    "jump comics",
+    "manga",
+    "dvd",
+    "blu-ray",
+    "blu ray",
+    "book",
+    "poster",
+    "clear file",
+    "box tissue",
+    "tissue",
+    "wall scroll",
+    "illustration board",
+    "art panel",
+
+    "缶バッジ",
+    "ステッカー",
+    "キーホルダー",
+    "アクリルスタンド",
+    "アクリルパネル",
+    "アクリル",
+    "コミック",
+    "漫画",
+    "dvd",
+    "blu-ray"
+  ];
+
+
+  if (
+    reject.some(
+      word =>
+        text.includes(word)
+    )
+  ) {
+    return false;
+  }
+
+
+  // R18 заглушка Mandarake
+  if (
+    (item.image || "")
+      .includes(
+        "/item_list/r18.png"
+      )
+  ) {
+    return false;
+  }
+
+
+  // Сильные признаки фигурки
+  const figureWords = [
+
+    "figure",
+    "figures",
+    "figurine",
+
+    "super action",
+    "super action statue",
+    "超像可動",
+
+    "s.h.figuarts",
+    "shfiguarts",
+    "figuarts",
+
+    "nendoroid",
+    "ねんどろいど",
+
+    "figma",
+
+    "mafiarte",
+    "mafiarte",
+
+    "mometria",
+
+    "world collectable figure",
+    "wcf",
+
+    "grandista",
+
+    "q posket",
+    "qposket",
+
+    "masterlise",
+
+    "ichiban kuji",
+    "一番くじ",
+
+    "prize figure",
+    "プライズ",
+
+    "statue",
+
+    "action figure",
+    "scale figure",
+
+    "フィギュア"
+  ];
+
+
+  return figureWords.some(
+    word =>
+      text.includes(word)
+  );
+}
+
+
+function isJojoFigure(item) {
+
+  if (!looksLikeFigure(item)) {
+    return false;
+  }
+
+  const text =
+    `${item.title || ""} ${item.rawText || ""}`
+      .toLowerCase();
+
+  const jojoWords = [
+
+    "jojo",
+    "jojo's bizarre",
+    "jojo's bizzare",
+    "ジョジョ",
+
+    "jotaro",
+    "dio",
+    "giorno",
+    "jolyne",
+    "josuke",
+    "joseph joestar",
+    "jonathan joestar",
+    "gyro zeppeli",
+    "johnny joestar",
+    "diego brando",
+    "killer queen",
+    "crazy diamond",
+    "star platinum",
+    "gold experience",
+    "golden experience",
+    "polnareff",
+    "prosciutto",
+    "spice girl",
+    "sheer heart attack",
+    "fugo",
+    "bruno buccellati",
+    "bucciarati"
+  ];
+
+  return jojoWords.some(
+    word =>
+      text.includes(word)
+  );
+}
