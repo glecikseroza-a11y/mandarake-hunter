@@ -372,166 +372,139 @@ async function runMandarake(env) {
 
         const rawItems =
           await page.evaluate(() => {
-
-            const links =
+        
+            const blocks =
               Array.from(
                 document.querySelectorAll(
-                  'a[href*="/order/detailPage/item"]'
+                  ".thumlarge > .block[data-itemidx]"
                 )
               );
-
-
-            const seen =
-              new Set();
-
-
-            const items = [];
-
-
-            for (
-              const link
-              of links
-            ) {
-
-              const href =
-                link.href;
-
-
-              if (
-                !href ||
-                seen.has(href)
-              ) {
-                continue;
+        
+            return blocks.map(
+              block => {
+        
+                const itemCode =
+                  block.getAttribute(
+                    "data-itemidx"
+                  );
+        
+        
+                const titleElement =
+                  block.querySelector(
+                    ".title a"
+                  );
+        
+        
+                const priceElement =
+                  block.querySelector(
+                    ".price p"
+                  );
+        
+        
+                const shopElement =
+                  block.querySelector(
+                    ".basic .shop"
+                  );
+        
+        
+                const stockElement =
+                  block.querySelector(
+                    ".basic .stock"
+                  );
+        
+        
+                const itemNoElement =
+                  block.querySelector(
+                    ".basic .itemno"
+                  );
+        
+        
+                const imageElement =
+                  block.querySelector(
+                    ".pic .thum img"
+                  );
+        
+        
+                const linkElement =
+                  titleElement ||
+                  block.querySelector(
+                    '.pic a[href*="/order/detailPage/item"]'
+                  );
+        
+        
+                const newArrival =
+                  Boolean(
+                    block.querySelector(
+                      ".new_arrival"
+                    )
+                  );
+        
+        
+                let href =
+                  linkElement?.href ||
+                  null;
+        
+        
+                let image =
+                  imageElement?.src ||
+                  imageElement?.getAttribute(
+                    "data-src"
+                  ) ||
+                  imageElement?.getAttribute(
+                    "data-original"
+                  ) ||
+                  null;
+        
+        
+                return {
+        
+                  itemCode,
+        
+                  title:
+                    (
+                      titleElement?.textContent ||
+                      ""
+                    ).trim(),
+        
+                  priceText:
+                    (
+                      priceElement?.textContent ||
+                      ""
+                    ).trim(),
+        
+                  shop:
+                    (
+                      shopElement?.textContent ||
+                      ""
+                    ).trim(),
+        
+                  stock:
+                    (
+                      stockElement?.textContent ||
+                      ""
+                    ).trim(),
+        
+                  itemNo:
+                    (
+                      itemNoElement?.textContent ||
+                      ""
+                    ).trim(),
+        
+                  image,
+        
+                  href,
+        
+                  newArrival,
+        
+                  text:
+                    (
+                      block.innerText ||
+                      ""
+                    ).trim()
+        
+                };
               }
-
-
-              const match =
-                href.match(
-                  /itemCode=(\d+)/
-                );
-
-
-              if (!match) {
-                continue;
-              }
-
-
-              const itemCode =
-                match[1];
-
-
-              if (
-                seen.has(itemCode)
-              ) {
-                continue;
-              }
-
-
-              seen.add(href);
-              seen.add(itemCode);
-
-
-              // Шукаємо найближчий контейнер товару
-              let box =
-                link;
-
-
-              for (
-                let i = 0;
-                i < 8 && box;
-                i++
-              ) {
-
-                const text =
-                  (
-                    box.innerText ||
-                    ""
-                  ).trim();
-
-
-                if (
-                  text.length > 30 &&
-                  (
-                    text.includes("円") ||
-                    text.includes("JPY") ||
-                    /¥\s*[\d,]+/.test(text)
-                  )
-                ) {
-                  break;
-                }
-
-
-                box =
-                  box.parentElement;
-              }
-
-
-              if (!box) {
-                box =
-                  link.parentElement;
-              }
-
-
-              const text =
-                (
-                  box?.innerText ||
-                  ""
-                ).trim();
-
-
-              // Фото
-              const imageElement =
-                box?.querySelector(
-                  "img"
-                ) ||
-                link.querySelector(
-                  "img"
-                );
-
-
-              let image =
-                imageElement?.src ||
-                imageElement?.getAttribute(
-                  "data-src"
-                ) ||
-                imageElement?.getAttribute(
-                  "data-original"
-                ) ||
-                null;
-
-
-              // Назва
-              let title =
-                (
-                  link.innerText ||
-                  ""
-                ).trim();
-
-
-              if (
-                !title &&
-                imageElement
-              ) {
-
-                title =
-                  (
-                    imageElement.alt ||
-                    ""
-                  ).trim();
-              }
-
-
-              items.push({
-                itemCode,
-                href,
-                title,
-                image,
-                text
-              });
-            }
-
-
-            return items;
+            );
           });
 
 
