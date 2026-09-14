@@ -610,7 +610,7 @@ async function runMandarake(env) {
           
           count++;
 
-
+      }
       } catch (error) {
 
         errors.push({
