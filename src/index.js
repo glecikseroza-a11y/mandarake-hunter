@@ -5,7 +5,7 @@ const CONFIG = {
 
   searches: [
 
-    // 🔥 JOJO — ПРІОРИТЕТ
+    // ⭐ JOJO — ПРІОРИТЕТ
     {
       name: "JoJo",
       keyword: "ジョジョ",
@@ -13,6 +13,7 @@ const CONFIG = {
       maxPrice: 10000
     },
 
+    // ⭐ SUPER ACTION STATUE
     {
       name: "Super Action Statue",
       keyword: "超像可動",
@@ -20,25 +21,10 @@ const CONFIG = {
       maxPrice: 10000
     },
 
-    {
-      name: "Medicos",
-      keyword: "メディコス",
-      type: "jojo",
-      maxPrice: 10000
-    },
-
-
-    // 💸 БУДЬ-ЯКІ ДЕШЕВІ ФІГУРКИ
+    // 🔥 БУДЬ-ЯКІ ДЕШЕВІ ФІГУРКИ
     {
       name: "Cheap figures",
       keyword: "フィギュア",
-      type: "cheap",
-      maxPrice: 3000
-    },
-
-    {
-      name: "Prize figures",
-      keyword: "プライズ フィギュア",
       type: "cheap",
       maxPrice: 3000
     }
@@ -662,7 +648,8 @@ async function runMandarake(env, bootstrap = false) {
       priced.filter(
         item =>
           !isSoldOut(item) &&
-          looksLikeFigure(item)
+          looksLikeFigure(item) &&
+          looksLikeAnimeFigure(item)
       );
     
     
@@ -1128,11 +1115,13 @@ function hasDefect(item) {
     `${item.title || ""} ${item.rawText || ""}`
       .toLowerCase();
 
-  const words = [
+  const defectWords = [
     "has damage",
     "damaged",
     "damage",
+    "broken",
     "junk",
+
     "ジャンク",
     "破損",
     "欠品",
@@ -1141,17 +1130,16 @@ function hasDefect(item) {
     "本体のみ",
     "台座欠品",
     "パーツ欠品",
-    "パーツのみ",
-    "開封"
+    "パーツのみ"
   ];
 
-  return words.some(
+  return defectWords.some(
     word =>
       text.includes(
         word.toLowerCase()
       )
   );
-}
+}}
 
 
 function looksLikeFigure(item) {
@@ -1283,6 +1271,320 @@ function looksLikeFigure(item) {
   );
 }
 
+function looksLikeAnimeFigure(item) {
+
+  if (!looksLikeFigure(item)) {
+    return false;
+  }
+
+  const text =
+    `${item.title || ""} ${item.rawText || ""}`
+      .toLowerCase();
+
+
+  // ========================================
+  // 1. JOJO завжди пропускаємо
+  // ========================================
+
+  if (isJojoFigure(item)) {
+    return true;
+  }
+
+
+  // ========================================
+  // 2. ЯВНО НЕ АНІМЕ
+  // ========================================
+
+  const rejectWords = [
+
+    // Спорт
+    "baseball",
+    "football",
+    "soccer",
+    "basketball",
+    "nba",
+    "mlb",
+    "nfl",
+    "pacific league",
+    "central league",
+    "baystars",
+    "marines",
+    "fighters",
+
+    // Динозаври / тварини
+    "dinosaur",
+    "dinosaurs",
+    "jurassic",
+    "animal",
+    "animals",
+    "wildlife",
+
+    // Їжа / рекламні персонажі
+    "biscuit",
+    "candy",
+    "sweets",
+    "food mascot",
+
+    // Не фігурка для нашої задачі
+    "figure charm",
+    "figure keychain",
+    "mascot charm",
+
+    // Західні франшизи
+    "disney",
+    "mickey",
+    "minnie",
+    "marvel",
+    "spider-man",
+    "spiderman",
+    "avengers",
+    "batman",
+    "superman",
+    "dc comics",
+    "star wars",
+    "pixar",
+    "transformers",
+
+    // Реальні люди / спортсмени
+    "player figure",
+    "athlete"
+  ];
+
+  if (
+    rejectWords.some(
+      word =>
+        text.includes(word)
+    )
+  ) {
+    return false;
+  }
+
+
+  // ========================================
+  // 3. ВІДОМІ АНІМЕ / МАНГА / ЯПОНСЬКІ
+  //    ПЕРСОНАЖІ ТА СЕРІЇ
+  // ========================================
+
+  const animeWords = [
+
+    // Demon Slayer
+    "demon slayer",
+    "kimetsu no yaiba",
+    "nezuko",
+    "tanjiro",
+    "rengoku",
+    "zenitsu",
+    "inosuke",
+
+    // One Piece
+    "one piece",
+    "luffy",
+    "zoro",
+    "nami",
+    "sanji",
+    "ace",
+    "trafalgar law",
+
+    // Naruto
+    "naruto",
+    "sasuke",
+    "sakura haruno",
+    "kakashi",
+    "itachi",
+
+    // Dragon Ball
+    "dragon ball",
+    "goku",
+    "vegeta",
+    "frieza",
+
+    // JJK
+    "jujutsu kaisen",
+    "gojo",
+    "satoru gojo",
+    "yuji itadori",
+    "sukuna",
+    "megumi fushiguro",
+
+    // Chainsaw Man
+    "chainsaw man",
+    "denji",
+    "makima",
+    "power",
+
+    // Bleach
+    "bleach",
+    "ichigo",
+    "rukia",
+
+    // Hunter x Hunter
+    "hunter x hunter",
+    "hunter×hunter",
+    "gon freecss",
+    "killua",
+    "kurapika",
+    "hisoka",
+
+    // MHA
+    "my hero academia",
+    "boku no hero",
+    "deku",
+    "bakugo",
+    "todoroki",
+
+    // Attack on Titan
+    "attack on titan",
+    "shingeki no kyojin",
+    "eren",
+    "mikasa",
+    "levi",
+
+    // Evangelion
+    "evangelion",
+    "rei ayanami",
+    "asuka langley",
+
+    // Death Note
+    "death note",
+    "light yagami",
+    "misa amane",
+    "ryuk",
+
+    // Frieren
+    "frieren",
+    "fern",
+    "stark",
+
+    // Re:Zero
+    "re:zero",
+    "rezero",
+    "rem",
+    "ram",
+    "emilia",
+
+    // Oshi no Ko
+    "oshi no ko",
+    "kana arima",
+    "ruby hoshino",
+    "aquamarine hoshino",
+    "ai hoshino",
+
+    // Sailor Moon
+    "sailor moon",
+
+    // Spy x Family
+    "spy x family",
+    "anya forger",
+    "yor forger",
+
+    // Fate
+    "fate/",
+    "fate stay night",
+    "fate grand order",
+    "saber",
+
+    // Sword Art Online
+    "sword art online",
+    "asuna",
+    "kirito",
+
+    // Bocchi
+    "bocchi the rock",
+
+    // Pokémon
+    "pokemon",
+    "pokémon",
+    "pikachu",
+
+    // Vocaloid / Miku
+    "hatsune miku",
+    "初音ミク",
+    "vocaloid",
+
+    // Japanese anime terminology
+    "アニメ",
+    "鬼滅の刃",
+    "呪術廻戦",
+    "ワンピース",
+    "ナルト",
+    "ドラゴンボール",
+    "チェンソーマン",
+    "進撃の巨人",
+    "葬送のフリーレン",
+    "推しの子"
+  ];
+
+
+  if (
+    animeWords.some(
+      word =>
+        text.includes(word)
+    )
+  ) {
+    return true;
+  }
+
+
+  // ========================================
+  // 4. СИЛЬНІ ЯПОНСЬКІ FIGURE-СЕРІЇ
+  //
+  // Це дозволяє ловити менш відомі аніме,
+  // яких немає у списку вище.
+  // ========================================
+
+  const animeFigureLines = [
+
+    "nendoroid",
+    "ねんどろいど",
+
+    "figma",
+
+    "pop up parade",
+
+    "q posket",
+    "qposket",
+
+    "grandista",
+
+    "masterlise",
+
+    "world collectable figure",
+    " wcf ",
+
+    "ichiban kuji",
+
+    "一番くじ",
+
+    "banpresto",
+
+    "good smile company",
+
+    "good smile",
+
+    "kotobukiya",
+
+    "alter ",
+
+    "max factory",
+
+    "taito",
+
+    "sega prize",
+
+    "furyu",
+    "fuRyu",
+
+    "mometria"
+  ];
+
+
+  return animeFigureLines.some(
+    word =>
+      text.includes(
+        word.toLowerCase()
+      )
+  );
+}
 
 function isJojoFigure(item) {
 
