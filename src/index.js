@@ -725,8 +725,7 @@ async function runMandarake(env) {
       const seenKey =
         `mandarake:item:${item.itemCode}`;
 
-      const url = new URL(request.url);
-      const bootstrap = url.searchParams.get("bootstrap") === "1";
+
       
       const seen =
         await env.SEEN.get(seenKey);
