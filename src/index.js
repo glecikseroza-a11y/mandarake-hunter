@@ -65,16 +65,23 @@ export default {
         success: true,
         message: "Mandarake Hunter is running",
         routes: [
-          "/run"
+          "/run",
+          "/bootstrap"
         ]
       });
     }
 
 
     // Ручний запуск
+    // Ручний запуск
     if (url.pathname === "/run") {
-
-      return await runMandarake(env);
+      return await runMandarake(env, false);
+    }
+    
+    // Перший запуск:
+    // запам'ятати поточні товари БЕЗ Telegram
+    if (url.pathname === "/bootstrap") {
+      return await runMandarake(env, true);
     }
 
     if (url.pathname === "/debug-dom") {
@@ -243,7 +250,7 @@ export default {
 
 
 
-async function runMandarake(env) {
+async function runMandarake(env, bootstrap = false) {
 
   let browser = null;
 
@@ -707,50 +714,46 @@ async function runMandarake(env) {
     }
 
     // --------------------------------
+    // --------------------------------
     // 6. Telegram + SEEN
     // --------------------------------
     
     let sent = 0;
     let alreadySeen = 0;
+    let bootstrapped = 0;
     let telegramErrors = [];
     
     const MAX_MESSAGES_PER_RUN = 8;
     
-    for (const item of matching) {
     
-      if (sent >= MAX_MESSAGES_PER_RUN) {
-        break;
-      }
+    // ========================================
+    // BOOTSTRAP
+    // Запам'ятовуємо ВСІ поточні товари.
+    // Telegram НЕ викликається.
+    // ========================================
     
-      const seenKey =
-        `mandarake:item:${item.itemCode}`;
-
-
-      
-      const seen =
-        await env.SEEN.get(seenKey);
+    if (bootstrap) {
     
-      if (seen) {
-        alreadySeen++;
-        continue;
-      }
+      for (const item of matching) {
     
-      try {
+        const seenKey =
+          `mandarake:item:${item.itemCode}`;
     
-        await sendMandarakeItem(
-          env,
-          item
-        );
+        const seen =
+          await env.SEEN.get(seenKey);
     
-        sent++;
+        if (seen) {
+          alreadySeen++;
+          continue;
+        }
     
         await env.SEEN.put(
           seenKey,
           JSON.stringify({
             title: item.title,
             priceYen: item.priceYen,
-            seenAt:
-              new Date().toISOString()
+            seenAt: new Date().toISOString(),
+            bootstrap: true
           }),
           {
             expirationTtl:
@@ -758,16 +761,69 @@ async function runMandarake(env) {
           }
         );
     
-      } catch (error) {
-    
-        telegramErrors.push({
-          itemCode:
-            item.itemCode,
-    
-          error:
-            String(error)
-        });
+        bootstrapped++;
       }
+    
+    }
+    
+    
+    // ========================================
+    // ЗВИЧАЙНИЙ РЕЖИМ
+    // Надсилаємо тільки НОВІ товари.
+    // ========================================
+    
+    else {
+    
+      for (const item of matching) {
+    
+        if (sent >= MAX_MESSAGES_PER_RUN) {
+          break;
+        }
+    
+        const seenKey =
+          `mandarake:item:${item.itemCode}`;
+    
+        const seen =
+          await env.SEEN.get(seenKey);
+    
+        if (seen) {
+          alreadySeen++;
+          continue;
+        }
+    
+        try {
+    
+          await sendMandarakeItem(
+            env,
+            item
+          );
+    
+          sent++;
+    
+          await env.SEEN.put(
+            seenKey,
+            JSON.stringify({
+              title: item.title,
+              priceYen: item.priceYen,
+              seenAt: new Date().toISOString(),
+              bootstrap: false
+            }),
+            {
+              expirationTtl:
+                90 * 24 * 60 * 60
+            }
+          );
+    
+        } catch (error) {
+    
+          telegramErrors.push({
+            itemCode: item.itemCode,
+            error: String(error)
+          });
+    
+        }
+      }
+    
     }
 
     return json({
@@ -797,9 +853,16 @@ async function runMandarake(env) {
 
       cheap:
         cheap.length,
-        sent,
-        alreadySeen,
-        telegramErrors,
+      
+      mode:
+        bootstrap
+          ? "bootstrap"
+          : "notify",
+      
+      bootstrapped,
+      sent,
+      alreadySeen,
+      telegramErrors,
 
       browserSeconds:
         Number(
