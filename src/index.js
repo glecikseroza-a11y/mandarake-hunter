@@ -1139,7 +1139,7 @@ function hasDefect(item) {
         word.toLowerCase()
       )
   );
-}}
+}
 
 
 function looksLikeFigure(item) {
